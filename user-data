@@ -1,0 +1,31 @@
+#cloud-config
+
+coreos:
+  etcd:
+      #generate a new token for each unique cluster from https://discovery.etcd.io/new
+      discovery: https://discovery.etcd.io/68db5439fb66b4704967a294eef69c86
+      addr: $public_ipv4:4001
+      peer-addr: $public_ipv4:7001
+  units:
+    - name: etcd.service
+      command: start
+    - name: fleet.service
+      command: start
+      runtime: no
+      content: |
+        [Unit]
+        Description=fleet
+
+        [Service]
+        Environment=FLEET_PUBLIC_IP=$public_ipv4
+        ExecStart=/usr/bin/fleet
+    - name: media-docker.mount
+      command: start
+      content: |
+        [Unit]
+        Description=NAS NFS Mount
+        [Mount]
+        What=192.168.2.4:/volume1/docker
+        Where=/media/docker
+        Type=nfs
+        Options=rw,nolock,async,rsize=8192,wsize=8192,timeo=14,intr
