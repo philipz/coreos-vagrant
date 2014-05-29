@@ -2,13 +2,13 @@
 # # vi: set ft=ruby :
 
 require 'fileutils'
+require_relative 'override-plugin.rb'
 
 CLOUD_CONFIG_PATH = "./user-data"
 CONFIG= "config.rb"
 
 # Defaults for config options defined in CONFIG
 $num_instances = 1
-$update_channel = "alpha"
 $enable_serial_logging = false
 $vb_gui = false
 $vb_memory = 1024
@@ -25,12 +25,17 @@ if File.exist?(CONFIG)
 end
 
 Vagrant.configure("2") do |config|
-  config.vm.box = "coreos-%s" % $update_channel
-  config.vm.box_version = ">= 308.0.1"
-  config.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant.json" % $update_channel
+  config.vm.box = "coreos-beta"
+  config.vm.box_url = "http://storage.core-os.net/coreos/amd64-usr/beta/coreos_production_vagrant.box"
 
   config.vm.provider :vmware_fusion do |vb, override|
-    override.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant_vmware_fusion.json" % $update_channel
+    override.vm.box_url = "http://storage.core-os.net/coreos/amd64-usr/beta/coreos_production_vagrant_vmware_fusion.box"
+  end
+
+  # Fix docker not being able to resolve private registry in VirtualBox
+  config.vm.provider :virtualbox do |vb, override|
+    vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
   end
 
   # plugin conflict
@@ -62,17 +67,13 @@ Vagrant.configure("2") do |config|
         end
       end
 
-      if $expose_docker_tcp
-        config.vm.network "forwarded_port", guest: 4243, host: $expose_docker_tcp, auto_correct: true
-      end
-
       config.vm.provider :virtualbox do |vb|
         vb.gui = $vb_gui
         vb.memory = $vb_memory
         vb.cpus = $vb_cpus
       end
 
-      ip = "172.17.8.#{i+100}"
+      ip = "192.168.2.#{i+15}"
       config.vm.network :private_network, ip: ip
 
       # Uncomment below to enable NFS for sharing the host machine into the coreos-vagrant VM.
